@@ -443,26 +443,8 @@ class IBStore(with_metaclass(MetaSingleton, object)):
         #     tickerId, q = self.reuseQueue(tickerId)  # reuse q for old tickerId
 
         # Get the best possible duration to reduce number of requests
-        duration = None
-        for dur in durations:
-            intdate = self.dt_plus_duration(begindate, dur)
-            if intdate >= enddate:
-                intdate = enddate
-                duration = dur  # begin -> end fits in single request
-                break
-        #intdate = begindate
-
-        if duration is None:  # no duration large enough to fit the request
-            duration = durations[-1]
-
-            # Store the calculated data
-            # self.histexreq[tickerId] = dict(
-            #     contract=contract, enddate=enddate, begindate=intdate,
-            #     timeframe=timeframe, compression=compression,
-            #     what=what, useRTH=useRTH, tz=tz, sessionend=sessionend)
-
-        barsize = self.tfcomp_to_size(timeframe, compression)
-
+        intdate = begindate
+        q = self.getTickerQueue()
         if contract.secType in ['CASH', 'CFD']:
             #self.iscash[tickerId] = 1  # msg.field code
             if not what:
@@ -473,20 +455,36 @@ class IBStore(with_metaclass(MetaSingleton, object)):
             pass
 
         what = what or 'TRADES'
-        
-        q = self.getTickerQueue()
+        barsize = self.tfcomp_to_size(timeframe, compression)
+        while intdate < enddate:
+            duration = None
+            for dur in durations:
+                intdate = self.dt_plus_duration(begindate, dur)
+                if intdate >= enddate:
+                    intdate = enddate
+                    duration = dur  # begin -> end fits in single request
+                    break
 
-        histdata = self.ib.reqHistoricalData(
-                                contract,
-                                intdate.strftime('%Y%m%d %H:%M:%S') + ' ' + tz.zone,
-                                duration,
-                                barsize,
-                                what,
-                                useRTH,
-                                2) # dateformat 1 for string, 2 for unix time in seconds
-        for msg in histdata:
-            q.put(msg)
-        
+            if duration is None:  # no duration large enough to fit the request
+                duration = durations[-1]
+
+                # Store the calculated data
+                # self.histexreq[tickerId] = dict(
+                #     contract=contract, enddate=enddate, begindate=intdate,
+                #     timeframe=timeframe, compression=compression,
+                #     what=what, useRTH=useRTH, tz=tz, sessionend=sessionend)
+
+            histdata = self.ib.reqHistoricalData(
+                                    contract,
+                                    intdate.strftime('%Y%m%d %H:%M:%S') + ' ' + tz.zone,
+                                    duration,
+                                    barsize,
+                                    what,
+                                    useRTH,
+                                    2) # dateformat 1 for string, 2 for unix time in seconds
+            for msg in histdata:
+                q.put(msg)
+            begindate = intdate
         return q
 
     def reqHistoricalData(self, contract, enddate, duration, barsize,
