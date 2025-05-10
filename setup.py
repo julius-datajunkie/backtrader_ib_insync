@@ -11,7 +11,7 @@ setuptools.setup(
     license='GNU General Public License Version 3',
     url="https://github.com/ultra1971/backtrader_ib_insync",
     packages=setuptools.find_packages(),
-    install_requires=['ib_insync'],
+    install_requires=['ib_insync', 'pytz', 'backtrader'],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Programming Language :: Python :: 3"
